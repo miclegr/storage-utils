@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "storage-utils"
+version = "1.0.0"
+authors = [
+  { name="miclegr"},
+]
+description = "utilities for working with sqlalchemy and pubsub"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "SQLAlchemy==2.0.6",
+    "google-cloud-pubsub==2.15.2",
+    "gcloud-aio-pubsub==5.4.0"
+]
