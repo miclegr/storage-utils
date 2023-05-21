@@ -114,11 +114,15 @@ class MessageTick:
 
     def __eq__(self, other: object) -> bool:
         return self.__dict__ == other.__dict__
-        
+
 @pytest.fixture
-def in_memory_sqlite_db():
+def base():
+    return Base
+
+@pytest.fixture
+def in_memory_sqlite_db(base):
     engine = create_engine("sqlite:///:memory:")
-    Base.metadata.create_all(engine)
+    base.metadata.create_all(engine)
     return engine
 
 @pytest.fixture
