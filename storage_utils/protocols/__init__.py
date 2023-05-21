@@ -2,11 +2,11 @@ from typing import Any, Protocol
 
 class Pushable(Protocol):
     @classmethod
-    def from_domain(cls, domain: Any) -> Any:
+    def from_domain(cls, domain: Any, **context) -> Any:
         pass
 
 class Pullable(Protocol):
-    def to_domain(self) -> Any:
+    def to_domain(self, **context) -> Any:
         pass
 
 class Parsable(Protocol):

@@ -13,9 +13,9 @@ class SqlAlchemyRepository(Repository):
     def __init__(self, session: Session):
         self.session = session
 
-    def _pull_scalars_query(self, query: Query|Select) -> List[Any]:
+    def _pull_scalars_query(self, query: Query|Select, **context) -> List[Any]:
         scalars = self.session.execute(query).scalars()
-        ticks = [scalar.to_domain() for scalar in scalars]
+        ticks = [scalar.to_domain(**context) for scalar in scalars]
         return ticks
 
     def _get_dialect(self) -> str:
@@ -41,16 +41,16 @@ class SqlAlchemyRepository(Repository):
     def _base_to_dict(base: DeclarativeBase, cols: List[str]):
         return {c: getattr(base, c) for c  in cols}
         
-    def _push_type(self, data_type: Pushable, domain_items: List[Any]):
+    def _push_type(self, data_type: Pushable, domain_items: List[Any], **context):
 
         for item in domain_items:
-            self.session.add(data_type.from_domain(item))
+            self.session.add(data_type.from_domain(item, **context))
 
-    def _push_type_if_not_exist(self, data_type: Pushable, domain_items: List[Any]):
+    def _push_type_if_not_exist(self, data_type: Pushable, domain_items: List[Any], **context):
 
         insert = self._get_insert()
         primary, cols = self._get_primary_and_cols(data_type)
-        data = [data_type.from_domain(item) for item in domain_items]
+        data = [data_type.from_domain(item, **context) for item in domain_items]
 
         stmt = insert(data_type).values([self._base_to_dict(d, primary+cols) for d in data])
         stmt = stmt.on_conflict_do_nothing(
@@ -59,11 +59,11 @@ class SqlAlchemyRepository(Repository):
 
         self.session.execute(stmt)
 
-    def _upsert_type(self, data_type: Pushable, columns_subset: List[str], domain_items: List[Any]):
+    def _upsert_type(self, data_type: Pushable, columns_subset: List[str], domain_items: List[Any], **context):
 
         insert = self._get_insert()
         primary, cols = self._get_primary_and_cols(data_type)
-        data = [data_type.from_domain(item) for item in domain_items]
+        data = [data_type.from_domain(item, **context) for item in domain_items]
 
         stmt = insert(data_type).values([self._base_to_dict(d, primary+cols) for d in data])
         stmt = stmt.on_conflict_do_update(
