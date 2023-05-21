@@ -7,6 +7,7 @@ from gcloud.aio.pubsub.utils import PubsubMessage
 
 class PubSubUnitOfWork(UnitOfWork):
 
+    repository_factory = PubSubRepository
     repository: PubSubRepository
 
     def __init__(self, pubsub_config: object,
@@ -24,7 +25,7 @@ class PubSubUnitOfWork(UnitOfWork):
         self.publisher_buffer = defaultdict(list)
         self.subscriber_client = self.subscriber_client_factory()
         self.publisher_client = self.publisher_client_factory()
-        self.repository = PubSubRepository(
+        self.repository = self.repository_factory(
                 self.subscriber_client,
                 self.pubsub_config,
                 self.ack_buffer, 
