@@ -35,14 +35,17 @@ class PubSubUnitOfWork(UnitOfWork):
         return super().__enter__()
 
     async def commit(self):
-        
+
+
+        batch_publish = 800
         for topic, messages in self.publisher_buffer.items():
             if len(messages)>0:
-                await self.publisher_client.publish(
-                        topic,
-                        [PubsubMessage(data=message.json().encode('utf-8')) 
-                         for message in messages]
-                        )
+                for i in range(0, len(messages), batch_publish):
+                    await self.publisher_client.publish(
+                            topic,
+                            [PubsubMessage(data=message.json().encode('utf-8')) 
+                             for message in messages[i:i+batch_publish]]
+                            )
                 messages[:] = []
 
         for topic, ack_ids in self.ack_buffer.items():
