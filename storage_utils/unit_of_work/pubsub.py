@@ -7,7 +7,6 @@ from gcloud.aio.pubsub.utils import PubsubMessage
 
 class PubSubUnitOfWork(UnitOfWork):
 
-    repository_factory = PubSubRepository
     repository: PubSubRepository
 
     def __init__(self, pubsub_config: object,
@@ -20,22 +19,22 @@ class PubSubUnitOfWork(UnitOfWork):
 
         super().__init__()
 
-    def __enter__(self):
+    def create_repository_components(self):
         self.ack_buffer = defaultdict(list)
         self.publisher_buffer = defaultdict(list)
         self.subscriber_client = self.subscriber_client_factory()
         self.publisher_client = self.publisher_client_factory()
-        self.repository = self.repository_factory(
+
+    def create_repository(self) -> PubSubRepository:
+        self.create_repository_components()
+        return PubSubRepository(
                 self.subscriber_client,
                 self.pubsub_config,
                 self.ack_buffer, 
                 self.publisher_buffer
                 )
 
-        return super().__enter__()
-
     async def commit(self):
-
 
         batch_publish = 800
         for topic, messages in self.publisher_buffer.items():

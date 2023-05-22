@@ -4,7 +4,6 @@ from ..repository.db import SqlAlchemyRepository
 
 class SqlAlchemyUnitOfWork(UnitOfWork):
 
-    repository_factory = SqlAlchemyRepository
     repository: SqlAlchemyRepository
 
     def __init__(self, session_factory: Callable) -> None:
@@ -12,9 +11,8 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self.session_factory = session_factory
         super().__init__()
 
-    def __enter__(self):
-        self.repository = self.repository_factory(self.session_factory())
-        return super().__enter__()
+    def create_repository(self) -> SqlAlchemyRepository:
+        return SqlAlchemyRepository(self.session_factory())
 
     def commit(self):
         self.repository.session.commit()
