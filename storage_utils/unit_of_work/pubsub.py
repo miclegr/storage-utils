@@ -1,4 +1,3 @@
-from typing import Callable
 from collections import defaultdict
 from .abstract import UnitOfWork
 from ..repository.pubsub import PubSubRepository
@@ -10,10 +9,16 @@ class PubSubUnitOfWork(UnitOfWork):
     repository: PubSubRepository
 
     def __init__(self, pubsub_config: object,
-                 subscriber_client_factory=SubscriberClient,
-                 publisher_client_factory=PublisherClient) -> None:
+                 subscriber_client_factory=None,
+                 publisher_client_factory=None) -> None:
 
         self.pubsub_config = pubsub_config
+
+        if subscriber_client_factory is None:
+            subscriber_client_factory = SubscriberClient
+        if publisher_client_factory is None:
+            publisher_client_factory = PublisherClient
+
         self.subscriber_client_factory = subscriber_client_factory
         self.publisher_client_factory = publisher_client_factory
 
