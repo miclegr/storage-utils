@@ -48,26 +48,28 @@ class SqlAlchemyRepository(Repository):
 
     def _push_type_if_not_exist(self, data_type: Pushable, domain_items: List[Any], **context):
 
-        insert = self._get_insert()
-        primary, cols = self._get_primary_and_cols(data_type)
-        data = [data_type.from_domain(item, **context) for item in domain_items]
+        if len(domain_items) > 0:
+            insert = self._get_insert()
+            primary, cols = self._get_primary_and_cols(data_type)
+            data = [data_type.from_domain(item, **context) for item in domain_items]
 
-        stmt = insert(data_type).values([self._base_to_dict(d, primary+cols) for d in data])
-        stmt = stmt.on_conflict_do_nothing(
-                index_elements=primary,
-                )
-        self.session.execute(stmt)
+            stmt = insert(data_type).values([self._base_to_dict(d, primary+cols) for d in data])
+            stmt = stmt.on_conflict_do_nothing(
+                    index_elements=primary,
+                    )
+            self.session.execute(stmt)
 
     def _upsert_type(self, data_type: Pushable, columns_subset: List[str], domain_items: List[Any], **context):
 
-        insert = self._get_insert()
-        primary, cols = self._get_primary_and_cols(data_type)
-        data = [data_type.from_domain(item, **context) for item in domain_items]
+        if len(domain_items) > 0:
+            insert = self._get_insert()
+            primary, cols = self._get_primary_and_cols(data_type)
+            data = [data_type.from_domain(item, **context) for item in domain_items]
 
-        stmt = insert(data_type).values([self._base_to_dict(d, primary+cols) for d in data])
-        stmt = stmt.on_conflict_do_update(
-                index_elements=primary,
-                set_={name: getattr(stmt.excluded, name) for name in columns_subset}
-                )
+            stmt = insert(data_type).values([self._base_to_dict(d, primary+cols) for d in data])
+            stmt = stmt.on_conflict_do_update(
+                    index_elements=primary,
+                    set_={name: getattr(stmt.excluded, name) for name in columns_subset}
+                    )
 
-        self.session.execute(stmt)
+            self.session.execute(stmt)
