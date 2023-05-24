@@ -34,7 +34,7 @@ class SqlAlchemyRepository(Repository):
     def _get_primary_and_cols(base: Type[DeclarativeBase]):
         ref = inspect(base)
         primary = [c.name for c in ref.primary_key]
-        cols = [c.name for c in ref.columns if c not in primary]
+        cols = [c.name for c in ref.columns if c.name not in primary]
         return primary, cols
 
     @staticmethod
@@ -56,7 +56,6 @@ class SqlAlchemyRepository(Repository):
         stmt = stmt.on_conflict_do_nothing(
                 index_elements=primary,
                 )
-
         self.session.execute(stmt)
 
     def _upsert_type(self, data_type: Pushable, columns_subset: List[str], domain_items: List[Any], **context):
