@@ -211,3 +211,14 @@ def fake_pubsub_publisher_client(fake_pubsub_publisher_buffer):
                 fake_pubsub_publisher_buffer[topic].append(message)
 
     return FakePubSubPublisherClient
+
+class FakeMessage:
+
+    data: bytes
+    ack_id: str
+
+def to_fake_message(data: str, i: int):
+    message = FakeMessage()
+    message.data = data.encode('utf8')
+    message.ack_id = str(i)
+    return message
