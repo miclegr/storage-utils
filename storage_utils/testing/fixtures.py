@@ -126,8 +126,14 @@ def in_memory_sqlite_db(base):
     return engine
 
 @pytest.fixture
-def sqlite_session_factory(in_memory_sqlite_db):
-    yield sessionmaker(bind=in_memory_sqlite_db)
+def on_disk_sqlite_db(base, tmp_path):
+    engine = create_engine("sqlite:///{}".format(tmp_path/"db.db"))
+    base.metadata.create_all(engine)
+    return engine
+
+@pytest.fixture
+def sqlite_session_factory(on_disk_sqlite_db):
+    yield sessionmaker(bind=on_disk_sqlite_db)
 
 @pytest.fixture
 def fake_data():
