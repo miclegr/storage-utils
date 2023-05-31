@@ -60,6 +60,9 @@ class PubSubUnitOfWork(UnitOfWork):
                         )
                 ack_ids[:] = []
 
+        await self.publisher_client.close()
+        await self.subscriber_client.close()
+
     def rollback(self):
         for _, ack_ids in self.ack_buffer.items():
             ack_ids[:] = []

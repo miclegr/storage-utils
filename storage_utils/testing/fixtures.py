@@ -202,6 +202,9 @@ def fake_pubsub_subscriber_client(fake_pubsub_subscriber_buffer):
             for ack_id in ack_ids:
                 self.acknowledged[subscription].append(ack_id)
 
+        async def close(self):
+            pass
+
     return FakePubSubSubcriberClient
                 
 @pytest.fixture
@@ -215,6 +218,9 @@ def fake_pubsub_publisher_client(fake_pubsub_publisher_buffer):
         async def publish(self, topic, messages):
             for message in messages:
                 fake_pubsub_publisher_buffer[topic].append(message)
+
+        async def close(self):
+            pass
 
     return FakePubSubPublisherClient
 
