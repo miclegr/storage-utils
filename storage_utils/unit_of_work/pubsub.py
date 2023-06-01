@@ -13,6 +13,7 @@ class PubSubUnitOfWork(UnitOfWork):
                  publisher_client_factory=None) -> None:
 
         self.pubsub_config = pubsub_config
+        self._timeout = 30
 
         if subscriber_client_factory is None:
             subscriber_client_factory = SubscriberClient
@@ -48,7 +49,8 @@ class PubSubUnitOfWork(UnitOfWork):
                     await self.publisher_client.publish(
                             topic,
                             [PubsubMessage(data=message.json().encode('utf-8')) 
-                             for message in messages[i:i+batch_publish]]
+                             for message in messages[i:i+batch_publish]],
+                            timeout=self._timeout
                             )
                 messages[:] = []
 
@@ -56,7 +58,8 @@ class PubSubUnitOfWork(UnitOfWork):
             if len(ack_ids)>0:
                 await self.subscriber_client.acknowledge(
                         topic,
-                        ack_ids
+                        ack_ids,
+                        timeout=self._timeout
                         )
                 ack_ids[:] = []
 

@@ -189,7 +189,7 @@ def fake_pubsub_subscriber_client(fake_pubsub_subscriber_buffer):
         def __init__(self, *args, **kwargs) -> None:
             self.acknowledged = defaultdict(list)
 
-        async def pull(self, subscription, max_messages=20):
+        async def pull(self, subscription, max_messages=20, timeout=10):
             messages = fake_pubsub_subscriber_buffer[subscription]
             to_return = []
             while len(messages)>0 and len(to_return)<max_messages:
@@ -198,7 +198,7 @@ def fake_pubsub_subscriber_client(fake_pubsub_subscriber_buffer):
                 to_return.append(message)
             return to_return
 
-        async def acknowledge(self, subscription, ack_ids):
+        async def acknowledge(self, subscription, ack_ids, timeout=10):
             for ack_id in ack_ids:
                 self.acknowledged[subscription].append(ack_id)
 
@@ -215,7 +215,7 @@ def fake_pubsub_publisher_client(fake_pubsub_publisher_buffer):
         def __init__(self, *args, **kwargs) -> None:
             pass
 
-        async def publish(self, topic, messages):
+        async def publish(self, topic, messages, timeout=10):
             for message in messages:
                 fake_pubsub_publisher_buffer[topic].append(message)
 

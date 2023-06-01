@@ -16,10 +16,11 @@ class PubSubRepository(Repository):
         self.config = config
         self.pubsub_ack_buffer = pubsub_ack_buffer
         self.pubsub_publisher_buffer = pubsub_publisher_buffer
+        self._timeout = 30
 
     async def _pull_from_subscription(self, subscription: str, MessageType: Parsable, **context):
 
-        messages = await self.pubsub_subscriber_client.pull(subscription, max_messages=20)
+        messages = await self.pubsub_subscriber_client.pull(subscription, max_messages=20, timeout=self._timeout)
         output = []
         for message in messages:
 
