@@ -2,6 +2,7 @@ from typing import Callable
 from .abstract import UnitOfWork
 from ..repository.db import SqlAlchemyRepository
 
+
 class SqlAlchemyUnitOfWork(UnitOfWork):
 
     repository: SqlAlchemyRepository

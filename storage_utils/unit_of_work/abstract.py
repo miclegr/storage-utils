@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from ..repository.abstract import Repository
 
+
 class UnitOfWork(ABC):
 
     repository: Repository
@@ -19,4 +20,3 @@ class UnitOfWork(ABC):
     @abstractmethod
     def rollback(self):
         raise NotImplementedError
-

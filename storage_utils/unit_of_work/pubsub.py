@@ -4,13 +4,17 @@ from ..repository.pubsub import PubSubRepository
 from gcloud.aio.pubsub import SubscriberClient, PublisherClient
 from gcloud.aio.pubsub.utils import PubsubMessage
 
+
 class PubSubUnitOfWork(UnitOfWork):
 
     repository: PubSubRepository
 
-    def __init__(self, pubsub_config: object,
-                 subscriber_client_factory=None,
-                 publisher_client_factory=None) -> None:
+    def __init__(
+        self,
+        pubsub_config: object,
+        subscriber_client_factory=None,
+        publisher_client_factory=None,
+    ) -> None:
 
         self.pubsub_config = pubsub_config
         self._timeout = 30
@@ -34,33 +38,33 @@ class PubSubUnitOfWork(UnitOfWork):
     def create_repository(self) -> PubSubRepository:
         self.create_repository_components()
         return PubSubRepository(
-                self.subscriber_client,
-                self.pubsub_config,
-                self.ack_buffer, 
-                self.publisher_buffer
-                )
+            self.subscriber_client,
+            self.pubsub_config,
+            self.ack_buffer,
+            self.publisher_buffer,
+        )
 
     async def commit(self):
 
         batch_publish = 800
         for topic, messages in self.publisher_buffer.items():
-            if len(messages)>0:
+            if len(messages) > 0:
                 for i in range(0, len(messages), batch_publish):
                     await self.publisher_client.publish(
-                            topic,
-                            [PubsubMessage(data=message.json().encode('utf-8')) 
-                             for message in messages[i:i+batch_publish]],
-                            timeout=self._timeout
-                            )
+                        topic,
+                        [
+                            PubsubMessage(data=message.json().encode("utf-8"))
+                            for message in messages[i : i + batch_publish]
+                        ],
+                        timeout=self._timeout,
+                    )
                 messages[:] = []
 
         for topic, ack_ids in self.ack_buffer.items():
-            if len(ack_ids)>0:
+            if len(ack_ids) > 0:
                 await self.subscriber_client.acknowledge(
-                        topic,
-                        ack_ids,
-                        timeout=self._timeout
-                        )
+                    topic, ack_ids, timeout=self._timeout
+                )
                 ack_ids[:] = []
 
         await self.publisher_client.close()
