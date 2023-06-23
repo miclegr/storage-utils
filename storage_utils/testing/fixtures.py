@@ -6,6 +6,7 @@ from sqlalchemy.orm import DeclarativeBase, mapped_column
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import json
+import uuid
 
 import pytest
 
@@ -127,7 +128,8 @@ def in_memory_sqlite_db(base):
 
 @pytest.fixture
 def on_disk_sqlite_db(base, tmp_path):
-    engine = create_engine("sqlite:///{}".format(tmp_path/"db.db"))
+    random_name = str(uuid.uuid4())
+    engine = create_engine("sqlite:///{}".format(tmp_path/f"{random_name}.db"))
     base.metadata.create_all(engine)
     return engine
 

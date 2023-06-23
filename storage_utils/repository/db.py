@@ -1,4 +1,4 @@
-from typing import Any, List, Optional, Type
+from typing import Any, Callable, List, Optional, Type
 from sqlalchemy.orm import DeclarativeBase, Query, Session
 from sqlalchemy.inspection import inspect
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -38,15 +38,51 @@ class SqlAlchemyRepository(Repository):
         return primary, cols
 
     @staticmethod
+    def _get_relationships(base: Type[DeclarativeBase]):
+        ref = inspect(base)
+        return ref.relationships
+
+    @staticmethod
     def _base_to_dict(base: DeclarativeBase, cols: List[str]):
         return {c: getattr(base, c) for c  in cols}
+
+    def _push_also_relationships(self, data: List[Pushable], data_type: Pushable, on_conflict_do_nothing: bool):
+
+        insert = self._get_insert()
+        stack =  [(data, data_type, (data_type,))]
+        while len(stack):
+            data, data_type, exclude = stack.pop()
+            relationships = [ x for x in self._get_relationships(data_type) if x.mapper.class_ not in exclude]
+            for relationship in relationships:
+
+                new_data = [
+                        relation_item
+                        for item in data
+                        for relation_item in getattr(item, relationship.key)
+                        ]
+                new_data_type = relationship.mapper.class_
+                primary, cols = self._get_primary_and_cols(new_data_type)
+
+                stmt = insert(new_data_type).values([self._base_to_dict(d, primary+cols) for d in new_data])
+                if on_conflict_do_nothing:
+                    stmt = stmt.on_conflict_do_nothing(
+                            index_elements=primary,
+                            )
+                self.session.execute(stmt)
+
+                stack.append((new_data, new_data_type, (*exclude, new_data_type)))
         
-    def _push_type(self, data_type: Pushable, domain_items: List[Any], **context):
+    def _push_type(self, data_type: Pushable, domain_items: List[Any], push_relationships=False, **context):
 
-        for item in domain_items:
-            self.session.add(data_type.from_domain(item, **context))
+        data = [ data_type.from_domain(item, **context) for item in domain_items]
 
-    def _push_type_if_not_exist(self, data_type: Pushable, domain_items: List[Any], **context):
+        for d in data:
+            self.session.add(d)
+
+        if push_relationships:
+            self._push_also_relationships(data, data_type, False)
+
+    def _push_type_if_not_exist(self, data_type: Pushable, domain_items: List[Any], push_relationships=False, **context):
 
         if len(domain_items) > 0:
             insert = self._get_insert()
@@ -58,6 +94,9 @@ class SqlAlchemyRepository(Repository):
                     index_elements=primary,
                     )
             self.session.execute(stmt)
+
+            if push_relationships:
+                self._push_also_relationships(data, data_type, True)
 
     def _upsert_type(self, data_type: Pushable, columns_subset: List[str], domain_items: List[Any], **context):
 
