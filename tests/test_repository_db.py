@@ -77,7 +77,7 @@ def test_upsert_type(sqlite_session_factory, fake_data):
 
     with sqlite_session_factory() as session:
         repository = SqlAlchemyRepository(session)
-        repository._upsert_type(DataTick, update_only, [tick0])
+        repository._upsert_type(DataTick, [tick0], update_only)
 
         session.commit()
 
@@ -87,7 +87,7 @@ def test_upsert_type(sqlite_session_factory, fake_data):
 
     with sqlite_session_factory() as session:
         repository = SqlAlchemyRepository(session)
-        repository._upsert_type(DataTick, update_only, [tick1])
+        repository._upsert_type(DataTick, [tick1], update_only)
 
         session.commit()
 
@@ -98,7 +98,7 @@ def test_upsert_type(sqlite_session_factory, fake_data):
 
     with sqlite_session_factory() as session:
         repository = SqlAlchemyRepository(session)
-        repository._upsert_type(DataTick, update_only, [tick1])
+        repository._upsert_type(DataTick, [tick1], update_only)
 
         session.commit()
 
@@ -111,74 +111,22 @@ def test_upsert_type(sqlite_session_factory, fake_data):
     assert tick0 == tick_data0.to_domain()
     assert tick1 == tick_data1.to_domain()
 
-
-def test_push_type_if_not_exists_relationship(
-    base, on_disk_sqlite_db, sqlite_session_factory
+def test_push_type_relationship(
+    sqlite_session_factory
 ):
-    class A(base):
-
-        __tablename__ = "a"
-
-        id = mapped_column(String, primary_key=True)
-        bs = relationship("B", back_populates="a")
-
-        @classmethod
-        def from_domain(cls, domain_a):
-            new = cls()
-            new.id = domain_a["id"]
-            new.bs = [B.from_domain(b, new) for b in domain_a["bs"]]
-            return new
-
-    class B(base):
-
-        __tablename__ = "b"
-
-        id = mapped_column(String, primary_key=True)
-        id_a = mapped_column(String, ForeignKey(A.id))
-
-        a = relationship("A", back_populates="bs")
-        cs = relationship("C", back_populates="b")
-
-        @classmethod
-        def from_domain(cls, domain_b, a):
-            new = cls()
-            new.a = a
-            new.id = domain_b["id"]
-            new.id_a = a.id
-            new.cs = [C.from_domain(c, new) for c in domain_b["cs"]]
-            return new
-
-    class C(base):
-
-        __tablename__ = "c"
-
-        id = mapped_column(String, primary_key=True)
-        id_b = mapped_column(String, ForeignKey(B.id))
-
-        b = relationship("B", back_populates="cs")
-
-        @classmethod
-        def from_domain(cls, domain_c, b):
-
-            new = cls()
-            new.id = domain_c["id"]
-            new.id_b = b.id
-            new.b = b
-            return new
-
-    base.metadata.create_all(on_disk_sqlite_db)
 
     domain_a = {
         "id": "0",
+        "value": "foo",
         "bs": [
-            {"id": "0", "cs": [{"id": "0"}, {"id": "1"}]},
-            {"id": "1", "cs": [{"id": "2"}, {"id": "3"}]},
+            {"id": "0", "value":"foo", "cs": [{"id": "0", "value": "foo"}, {"id": "1", "value": "foo"}]},
+            {"id": "1", "value":"foo", "cs": [{"id": "2", "value":"foo"}, {"id": "3", "value":"foo"}]},
         ],
     }
 
     with sqlite_session_factory() as session:
         repository = SqlAlchemyRepository(session)
-        repository._push_type_if_not_exist(A, [domain_a], push_relationships=True)
+        repository._push_type(A, [domain_a], push_relationships=True)
         session.commit()
 
     with sqlite_session_factory() as session:
@@ -189,9 +137,106 @@ def test_push_type_if_not_exists_relationship(
 
     assert len(as_) == 1
     assert as_[0].id == domain_a["id"]
+    assert as_[0].value == domain_a["value"]
 
     for b, b_domain in zip(bs_, domain_a["bs"]):
         assert b.id == b_domain["id"]
+        assert b.value == b_domain["value"]
 
     for c, c_domain in zip(cs_, sum([x["cs"] for x in domain_a["bs"]], [])):
         assert c.id == c_domain["id"]
+        assert c.value == c_domain["value"]
+
+def test_push_type_if_not_exists_relationship(
+    sqlite_session_factory
+):
+
+    domain_a = {
+        "id": "0",
+        "value": "foo",
+        "bs": [
+            {"id": "0", "value":"foo", "cs": [{"id": "0", "value": "foo"}, {"id": "1", "value": "foo"}]},
+            {"id": "1", "value":"foo", "cs": [{"id": "2", "value":"foo"}, {"id": "3", "value":"foo"}]},
+        ],
+    }
+
+    domain_a1 = {
+        "id": "0",
+        "value": "bar",
+        "bs": [
+            {"id": "0", "value":"bar", "cs": [{"id": "0", "value": "bar"}, {"id": "1", "value": "bar"}]},
+            {"id": "1", "value":"bar", "cs": [{"id": "2", "value":"bar"}, {"id": "3", "value":"bar"}]},
+        ],
+    }
+
+
+    with sqlite_session_factory() as session:
+        repository = SqlAlchemyRepository(session)
+        repository._push_type_if_not_exist(A, [domain_a], push_relationships=True)
+        repository._push_type_if_not_exist(A, [domain_a1], push_relationships=True)
+        session.commit()
+
+    with sqlite_session_factory() as session:
+
+        as_ = list(session.execute(select(A)).scalars())
+        bs_ = list(session.execute(select(B)).scalars())
+        cs_ = list(session.execute(select(C)).scalars())
+
+    assert len(as_) == 1
+    assert as_[0].id == domain_a["id"]
+    assert as_[0].value == domain_a["value"]
+
+    for b, b_domain in zip(bs_, domain_a["bs"]):
+        assert b.id == b_domain["id"]
+        assert b.value == b_domain["value"]
+
+    for c, c_domain in zip(cs_, sum([x["cs"] for x in domain_a["bs"]], [])):
+        assert c.id == c_domain["id"]
+        assert c.value == c_domain["value"]
+
+def test_upsert_type_if_not_exists_relationship(
+    sqlite_session_factory
+):
+
+    domain_a = {
+        "id": "0",
+        "value": "foo",
+        "bs": [
+            {"id": "0", "value":"foo", "cs": [{"id": "0", "value": "foo"}, {"id": "1", "value": "foo"}]},
+            {"id": "1", "value":"foo", "cs": [{"id": "2", "value":"foo"}, {"id": "3", "value":"foo"}]},
+        ],
+    }
+
+    domain_a1 = {
+        "id": "0",
+        "value": "bar",
+        "bs": [
+            {"id": "0", "value":"bar", "cs": [{"id": "0", "value": "bar"}, {"id": "1", "value": "bar"}]},
+            {"id": "1", "value":"bar", "cs": [{"id": "2", "value":"bar"}, {"id": "3", "value":"bar"}]},
+        ],
+    }
+
+
+    with sqlite_session_factory() as session:
+        repository = SqlAlchemyRepository(session)
+        repository._upsert_type(A, [domain_a], upsert_relationships=True)
+        repository._upsert_type(A, [domain_a1], upsert_relationships=True)
+        session.commit()
+
+    with sqlite_session_factory() as session:
+
+        as_ = list(session.execute(select(A)).scalars())
+        bs_ = list(session.execute(select(B)).scalars())
+        cs_ = list(session.execute(select(C)).scalars())
+
+    assert len(as_) == 1
+    assert as_[0].id == domain_a1["id"]
+    assert as_[0].value == domain_a1["value"]
+
+    for b, b_domain in zip(bs_, domain_a1["bs"]):
+        assert b.id == b_domain["id"]
+        assert b.value == b_domain["value"]
+
+    for c, c_domain in zip(cs_, sum([x["cs"] for x in domain_a1["bs"]], [])):
+        assert c.id == c_domain["id"]
+        assert c.value == c_domain["value"]

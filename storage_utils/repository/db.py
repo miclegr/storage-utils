@@ -47,7 +47,7 @@ class SqlAlchemyRepository(Repository):
         return {c: getattr(base, c) for c in cols}
 
     def _push_also_relationships(
-        self, data: List[Pushable], data_type: Pushable, on_conflict_do_nothing: bool
+        self, data: List[Pushable], data_type: Pushable, handle_conflict: str 
     ):
 
         insert = self._get_insert()
@@ -69,14 +69,25 @@ class SqlAlchemyRepository(Repository):
                 new_data_type = relationship.mapper.class_
                 primary, cols = self._get_primary_and_cols(new_data_type)
 
-                stmt = insert(new_data_type).values(
-                    [self._base_to_dict(d, primary + cols) for d in new_data]
-                )
-                if on_conflict_do_nothing:
-                    stmt = stmt.on_conflict_do_nothing(
-                        index_elements=primary,
+                if len(new_data) > 0:
+                    stmt = insert(new_data_type).values(
+                        [self._base_to_dict(d, primary + cols) for d in new_data]
                     )
-                self.session.execute(stmt)
+                    if handle_conflict == 'dont':
+                        pass
+                    elif handle_conflict == 'on_conflict_do_nothing':
+                        stmt = stmt.on_conflict_do_nothing(
+                            index_elements=primary,
+                        )
+                    elif handle_conflict == 'on_conflict_do_update':
+                        stmt = stmt.on_conflict_do_update(
+                            index_elements=primary,
+                            set_={name: getattr(stmt.excluded, name) for name in cols},
+                        )
+                    else:
+                        raise NotImplementedError
+
+                    self.session.execute(stmt)
 
                 stack.append((new_data, new_data_type, (*exclude, new_data_type)))
 
@@ -88,13 +99,17 @@ class SqlAlchemyRepository(Repository):
         **context
     ):
 
+        insert = self._get_insert()
+        primary, cols = self._get_primary_and_cols(data_type)
         data = [data_type.from_domain(item, **context) for item in domain_items]
 
-        for d in data:
-            self.session.add(d)
+        stmt = insert(data_type).values(
+            [self._base_to_dict(d, primary + cols) for d in data]
+        )
+        self.session.execute(stmt)
 
         if push_relationships:
-            self._push_also_relationships(data, data_type, False)
+            self._push_also_relationships(data, data_type, 'dont')
 
     def _push_type_if_not_exist(
         self,
@@ -118,19 +133,23 @@ class SqlAlchemyRepository(Repository):
             self.session.execute(stmt)
 
             if push_relationships:
-                self._push_also_relationships(data, data_type, True)
+                self._push_also_relationships(data, data_type, 'on_conflict_do_nothing')
 
     def _upsert_type(
         self,
         data_type: Pushable,
-        columns_subset: List[str],
         domain_items: List[Any],
+        columns_subset: Optional[List[str]] = None,
+        upsert_relationships=False,
         **context
     ):
 
         if len(domain_items) > 0:
             insert = self._get_insert()
             primary, cols = self._get_primary_and_cols(data_type)
+            if columns_subset is None:
+                columns_subset = cols
+
             data = [data_type.from_domain(item, **context) for item in domain_items]
 
             stmt = insert(data_type).values(
@@ -142,3 +161,6 @@ class SqlAlchemyRepository(Repository):
             )
 
             self.session.execute(stmt)
+
+            if upsert_relationships:
+                self._push_also_relationships(data, data_type, 'on_conflict_do_update')

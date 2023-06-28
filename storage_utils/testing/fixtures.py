@@ -1,7 +1,7 @@
 from collections import defaultdict
 from datetime import datetime, timedelta
-from sqlalchemy import DateTime, Float, String
-from sqlalchemy.orm import DeclarativeBase, mapped_column
+from sqlalchemy import DateTime, Float, String, ForeignKey
+from sqlalchemy.orm import DeclarativeBase, mapped_column, relationship
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -118,6 +118,62 @@ class MessageTick:
     def __eq__(self, other: object) -> bool:
         return self.__dict__ == other.__dict__
 
+class A(Base):
+
+    __tablename__ = "a"
+
+    id = mapped_column(String, primary_key=True)
+    value = mapped_column(String, primary_key=False)
+    bs = relationship("B", back_populates="a")
+
+    @classmethod
+    def from_domain(cls, domain_a):
+        new = cls()
+        new.id = domain_a["id"]
+        new.value = domain_a['value']
+        new.bs = [B.from_domain(b, new) for b in domain_a["bs"]]
+        return new
+
+class B(Base):
+
+    __tablename__ = "b"
+
+    id = mapped_column(String, primary_key=True)
+    value = mapped_column(String, primary_key=False)
+    id_a = mapped_column(String, ForeignKey(A.id))
+
+    a = relationship("A", back_populates="bs")
+    cs = relationship("C", back_populates="b")
+
+    @classmethod
+    def from_domain(cls, domain_b, a):
+        new = cls()
+        new.a = a
+        new.id = domain_b["id"]
+        new.value = domain_b["value"]
+        new.id_a = a.id
+        new.cs = [C.from_domain(c, new) for c in domain_b["cs"]]
+        return new
+
+class C(Base):
+
+    __tablename__ = "c"
+
+    id = mapped_column(String, primary_key=True)
+    value = mapped_column(String, primary_key=False)
+    id_b = mapped_column(String, ForeignKey(B.id))
+
+    b = relationship("B", back_populates="cs")
+
+    @classmethod
+    def from_domain(cls, domain_c, b):
+
+        new = cls()
+        new.id = domain_c["id"]
+        new.value = domain_c["value"]
+        new.id_b = b.id
+        new.b = b
+        return new
 
 @pytest.fixture
 def base():
