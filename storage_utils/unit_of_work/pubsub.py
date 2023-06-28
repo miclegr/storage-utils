@@ -44,7 +44,7 @@ class PubSubUnitOfWork(UnitOfWork):
             self.publisher_buffer,
         )
 
-    async def commit(self):
+    async def commit_outbound(self):
 
         batch_publish = 800
         for topic, messages in self.publisher_buffer.items():
@@ -60,6 +60,7 @@ class PubSubUnitOfWork(UnitOfWork):
                     )
                 messages[:] = []
 
+    async def commit_inbound(self):
         for topic, ack_ids in self.ack_buffer.items():
             if len(ack_ids) > 0:
                 await self.subscriber_client.acknowledge(
@@ -67,8 +68,17 @@ class PubSubUnitOfWork(UnitOfWork):
                 )
                 ack_ids[:] = []
 
+    async def close_clients(self):
         await self.publisher_client.close()
         await self.subscriber_client.close()
+
+    async def commit(self):
+
+        await self.commit_outbound()
+        await self.commit_inbound()
+        
+        await self.close_clients()
+
 
     def rollback(self):
         for _, ack_ids in self.ack_buffer.items():
