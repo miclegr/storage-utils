@@ -260,11 +260,13 @@ def fake_pubsub_subscriber_client(fake_pubsub_subscriber_buffer):
 
         async def pull(self, subscription, max_messages=20, timeout=10):
             messages = fake_pubsub_subscriber_buffer[subscription]
+            ack_buffer = self.acknowledged[subscription]
             to_return = []
             while len(messages) > 0 and len(to_return) < max_messages:
                 message = messages[0]
                 messages = messages[1:]
-                to_return.append(message)
+                if message.ack_id not in ack_buffer:
+                    to_return.append(message)
             return to_return
 
         async def acknowledge(self, subscription, ack_ids, timeout=10):
