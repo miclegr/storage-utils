@@ -24,7 +24,7 @@ class PubSubRepository(Repository):
     ):
 
         messages = await self.pubsub_subscriber_client.pull(
-            subscription, max_messages=20, timeout=self._timeout
+            subscription, max_messages=1000, timeout=self._timeout
         )
         output = []
         for message in messages:
