@@ -14,7 +14,7 @@ async def test_pull(
 
     fake_pubsub_subscriber_buffer["test"] = fake_messages
     repository = PubSubRepository(
-        fake_pubsub_subscriber_client(), {}, defaultdict(list), defaultdict(list)
+        fake_pubsub_subscriber_client(), {}, defaultdict(dict), defaultdict(list)
     )
 
     messages = await repository._pull_from_subscription("test", MessageTick)
@@ -27,7 +27,7 @@ async def test_push(fake_pubsub_subscriber_client, fake_data):
 
     publish_buffer = defaultdict(list)
     repository = PubSubRepository(
-        fake_pubsub_subscriber_client(), {}, defaultdict(list), publish_buffer
+        fake_pubsub_subscriber_client(), {}, defaultdict(dict), publish_buffer
     )
 
     domain_ticks = [DomainTick.from_dict(x) for x in fake_data]

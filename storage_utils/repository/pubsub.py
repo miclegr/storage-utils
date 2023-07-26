@@ -9,7 +9,7 @@ class PubSubRepository(Repository):
         self,
         pubsub_subscriber_client,
         config: object,
-        pubsub_ack_buffer: Dict[str, List[str]],
+        pubsub_ack_buffer: Dict[str, Dict[int, str]],
         pubsub_publisher_buffer: Dict[str, List[Pushable]],
     ) -> None:
 
@@ -27,11 +27,12 @@ class PubSubRepository(Repository):
             subscription, max_messages=1000, timeout=self._timeout
         )
         output = []
-        for message in messages:
+        for message_raw in messages:
 
-            self.pubsub_ack_buffer[subscription].append(message.ack_id)
-            message = MessageType.parse_raw(message.data.decode("utf-8"))
-            output.append(message.to_domain(**context))
+            message = MessageType.parse_raw(message_raw.data.decode("utf-8"))
+            domain_message = message.to_domain(**context)
+            self.pubsub_ack_buffer[subscription][id(domain_message)]= message_raw.ack_id
+            output.append(domain_message)
 
         return output
 

@@ -26,11 +26,44 @@ async def test_ack(
         m.ack_id for m in fake_messages
     )
 
+    fake_pubsub_subscriber_buffer["test"] = fake_messages
+
     with uow:
         ticks = await uow.repository._pull_from_subscription("test", MessageTick)
 
     assert uow.subscriber_client.acknowledged["test"] == []
 
+@pytest.mark.asyncio
+async def test_ack_only_excluding(
+    fake_pubsub_subscriber_client,
+    fake_pubsub_publisher_client,
+    fake_pubsub_subscriber_buffer,
+    fake_messages,
+):
+
+    pubsub_config = {}
+    uow = PubSubUnitOfWork(
+        pubsub_config, fake_pubsub_subscriber_client, fake_pubsub_publisher_client
+    )
+    fake_pubsub_subscriber_buffer["test"] = fake_messages
+
+    with uow:
+        ticks = await uow.repository._pull_from_subscription("test", MessageTick)
+        await uow.commit_inbound(only=ticks[:2])
+
+    assert set(uow.subscriber_client.acknowledged["test"]) == set(
+        m.ack_id for m in fake_messages[:2]
+    )
+
+    fake_pubsub_subscriber_buffer["test"] = fake_messages
+
+    with uow:
+        ticks = await uow.repository._pull_from_subscription("test", MessageTick)
+        await uow.commit_inbound(excluding=ticks[:2])
+
+    assert set(uow.subscriber_client.acknowledged["test"]) == set(
+        m.ack_id for m in fake_messages[2:]
+    )
 
 @pytest.mark.asyncio
 async def test_publish(
