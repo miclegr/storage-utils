@@ -17,7 +17,7 @@ class PubSubRepository(Repository):
         self.config = config
         self.pubsub_ack_buffer = pubsub_ack_buffer
         self.pubsub_publisher_buffer = pubsub_publisher_buffer
-        self._timeout = 30
+        self._timeout = 120
 
     async def _pull_from_subscription(
         self, subscription: str, MessageType: Parsable, **context
