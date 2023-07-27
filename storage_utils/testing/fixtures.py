@@ -1,6 +1,6 @@
 from collections import defaultdict
 from datetime import datetime, timedelta
-from sqlalchemy import DateTime, Float, String, ForeignKey
+from sqlalchemy import DateTime, Float, String, ForeignKey, event
 from sqlalchemy.orm import DeclarativeBase, mapped_column, relationship
 
 from sqlalchemy import create_engine
@@ -192,8 +192,17 @@ def on_disk_sqlite_db(base, tmp_path):
     random_name = str(uuid.uuid4())
     engine = create_engine("sqlite:///{}".format(tmp_path / f"{random_name}.db"))
     base.metadata.create_all(engine)
+
     return engine
 
+@pytest.fixture
+def enforce_foreign_key_constraints(on_disk_sqlite_db):
+
+    def _fk_pragma_on_connect(dbapi_con, con_record):
+        dbapi_con.execute('pragma foreign_keys=ON;')
+
+    on_disk_sqlite_db.dispose()
+    event.listen(on_disk_sqlite_db, 'connect', _fk_pragma_on_connect)
 
 @pytest.fixture
 def sqlite_session_factory(on_disk_sqlite_db):
@@ -228,6 +237,9 @@ def fake_pubsub_publisher_buffer():
 def fake_pubsub_subscriber_buffer():
     return defaultdict(list)
 
+@pytest.fixture
+def fake_pubsub_subscriber_ack_buffer():
+    return defaultdict(list)
 
 @pytest.fixture
 def fake_messages(fake_data):
@@ -253,10 +265,10 @@ def fake_messages(fake_data):
 
 
 @pytest.fixture
-def fake_pubsub_subscriber_client(fake_pubsub_subscriber_buffer):
+def fake_pubsub_subscriber_client(fake_pubsub_subscriber_buffer, fake_pubsub_subscriber_ack_buffer):
     class FakePubSubSubcriberClient:
         def __init__(self, *args, **kwargs) -> None:
-            self.acknowledged = defaultdict(list)
+            self.acknowledged = fake_pubsub_subscriber_ack_buffer
 
         async def pull(self, subscription, max_messages=20, timeout=10):
             messages = fake_pubsub_subscriber_buffer[subscription]
