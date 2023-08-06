@@ -62,14 +62,17 @@ class SqlAlchemyRepository(Repository):
             for relationship in relationships:
 
                 new_data = [
-                    relation_item
+                    getattr(item, relationship.key)
                     for item in data
-                    for relation_item in getattr(item, relationship.key)
-                ]
+                    ]
+                if relationship.uselist:
+                    new_data = sum(new_data,[])
+
                 new_data_type = relationship.mapper.class_
                 primary, cols = self._get_primary_and_cols(new_data_type)
 
                 if len(new_data) > 0:
+                    
                     stmt = insert(new_data_type).values(
                         [self._base_to_dict(d, primary + cols) for d in new_data]
                     )
