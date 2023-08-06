@@ -83,10 +83,15 @@ class SqlAlchemyRepository(Repository):
                             index_elements=primary,
                         )
                     elif handle_conflict == 'on_conflict_do_update':
-                        stmt = stmt.on_conflict_do_update(
-                            index_elements=primary,
-                            set_={name: getattr(stmt.excluded, name) for name in cols},
-                        )
+                        if len(cols)>0:
+                            stmt = stmt.on_conflict_do_update(
+                                index_elements=primary,
+                                set_={name: getattr(stmt.excluded, name) for name in cols},
+                            )
+                        else:
+                            stmt = stmt.on_conflict_do_nothing(
+                                index_elements=primary,
+                            )
                     else:
                         raise NotImplementedError
 
