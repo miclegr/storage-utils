@@ -9,6 +9,7 @@ async def test_ack(
     fake_pubsub_subscriber_client,
     fake_pubsub_publisher_client,
     fake_pubsub_subscriber_buffer,
+    fake_pubsub_subscriber_ack_buffer,
     fake_messages,
 ):
 
@@ -16,6 +17,7 @@ async def test_ack(
     uow = PubSubUnitOfWork(
         pubsub_config, fake_pubsub_subscriber_client, fake_pubsub_publisher_client
     )
+    uow.ack_buffer = fake_pubsub_subscriber_ack_buffer
     fake_pubsub_subscriber_buffer["test"] = fake_messages
 
     with uow:
@@ -26,18 +28,19 @@ async def test_ack(
         m.ack_id for m in fake_messages
     )
 
-    fake_pubsub_subscriber_buffer["test"] = fake_messages
+    fake_pubsub_subscriber_buffer["test1"] = fake_messages
 
     with uow:
-        ticks = await uow.repository._pull_from_subscription("test", MessageTick)
+        ticks = await uow.repository._pull_from_subscription("test1", MessageTick)
 
-    assert uow.subscriber_client.acknowledged["test"] == []
+    assert uow.subscriber_client.acknowledged["test1"] == []
 
 @pytest.mark.asyncio
 async def test_ack_only_excluding(
     fake_pubsub_subscriber_client,
     fake_pubsub_publisher_client,
     fake_pubsub_subscriber_buffer,
+    fake_pubsub_subscriber_ack_buffer,
     fake_messages,
 ):
 
@@ -45,6 +48,7 @@ async def test_ack_only_excluding(
     uow = PubSubUnitOfWork(
         pubsub_config, fake_pubsub_subscriber_client, fake_pubsub_publisher_client
     )
+    uow.ack_buffer = fake_pubsub_subscriber_ack_buffer
     fake_pubsub_subscriber_buffer["test"] = fake_messages
 
     with uow:
@@ -55,13 +59,13 @@ async def test_ack_only_excluding(
         m.ack_id for m in fake_messages[:2]
     )
 
-    fake_pubsub_subscriber_buffer["test"] = fake_messages
+    fake_pubsub_subscriber_buffer["test1"] = fake_messages
 
     with uow:
-        ticks = await uow.repository._pull_from_subscription("test", MessageTick)
+        ticks = await uow.repository._pull_from_subscription("test1", MessageTick)
         await uow.commit_inbound(excluding=ticks[:2])
 
-    assert set(uow.subscriber_client.acknowledged["test"]) == set(
+    assert set(uow.subscriber_client.acknowledged["test1"]) == set(
         m.ack_id for m in fake_messages[2:]
     )
 
