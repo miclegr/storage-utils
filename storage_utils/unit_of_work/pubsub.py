@@ -4,6 +4,11 @@ from .abstract import UnitOfWork
 from ..repository.pubsub import PubSubRepository
 from gcloud.aio.pubsub import SubscriberClient, PublisherClient
 from gcloud.aio.pubsub.utils import PubsubMessage
+from gcloud.aio.auth.token import Token
+
+TOKEN = Token(scopes=[
+    'https://www.googleapis.com/auth/pubsub',
+    ])
 
 
 class PubSubUnitOfWork(UnitOfWork):
@@ -21,9 +26,9 @@ class PubSubUnitOfWork(UnitOfWork):
         self._timeout = 30
 
         if subscriber_client_factory is None:
-            subscriber_client_factory = SubscriberClient
+            subscriber_client_factory = lambda : SubscriberClient(token=TOKEN)
         if publisher_client_factory is None:
-            publisher_client_factory = PublisherClient
+            publisher_client_factory = lambda : PublisherClient(token=TOKEN)
 
         self.subscriber_client_factory = subscriber_client_factory
         self.publisher_client_factory = publisher_client_factory
