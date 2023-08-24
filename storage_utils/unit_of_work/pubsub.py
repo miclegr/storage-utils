@@ -24,6 +24,7 @@ class PubSubUnitOfWork(UnitOfWork):
 
         self.pubsub_config = pubsub_config
         self._timeout = 30
+        self._constant_ordering_key = 'key'
 
         if subscriber_client_factory is None:
             subscriber_client_factory = lambda : SubscriberClient(token=TOKEN)
@@ -59,7 +60,10 @@ class PubSubUnitOfWork(UnitOfWork):
                     await self.publisher_client.publish(
                         topic,
                         [
-                            PubsubMessage(data=message.json().encode("utf-8"))
+                            PubsubMessage(
+                                data=message.json().encode("utf-8"),
+                                ordering_key=self._constant_ordering_key
+                                )
                             for message in messages[i : i + batch_publish]
                         ],
                         timeout=self._timeout,
