@@ -14,7 +14,7 @@ async def test_pull(
 
     fake_pubsub_subscriber_buffer["test"] = fake_messages
     repository = PubSubRepository(
-        fake_pubsub_subscriber_client(), {}, defaultdict(dict), defaultdict(dict)
+        fake_pubsub_subscriber_client(), {}, defaultdict(dict), defaultdict(list)
     )
 
     messages = await repository._pull_from_subscription("test", MessageTick)

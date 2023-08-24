@@ -1,4 +1,4 @@
-from typing import List, Dict, Type, Any
+from typing import List, Dict, Type, Any, Tuple
 import json
 from .abstract import Repository
 from ..protocols import Parsable, Pushable
@@ -10,7 +10,7 @@ class PubSubRepository(Repository):
         pubsub_subscriber_client,
         config: object,
         pubsub_ack_buffer: Dict[str, Dict[int, str]],
-        pubsub_publisher_buffer: Dict[str, List[Pushable]],
+        pubsub_publisher_buffer: Dict[str, List[Tuple[str, Pushable]]],
     ) -> None:
 
         self.pubsub_subscriber_client = pubsub_subscriber_client
@@ -37,9 +37,9 @@ class PubSubRepository(Repository):
         return output
 
     def _push_to_topic(
-        self, topic: str, MessageType: Pushable, items: List[Any], **context
+        self, topic: str, MessageType: Pushable, items: List[Any], ordering_key='', **context
     ):
 
         buffer = self.pubsub_publisher_buffer[topic]
         for item in items:
-            buffer.append(MessageType.from_domain(item, **context))
+            buffer.append((ordering_key, MessageType.from_domain(item, **context)))

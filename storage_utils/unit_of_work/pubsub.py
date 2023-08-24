@@ -59,8 +59,8 @@ class PubSubUnitOfWork(UnitOfWork):
                     await self.publisher_client.publish(
                         topic,
                         [
-                            PubsubMessage(data=message.json().encode("utf-8"))
-                            for message in messages[i : i + batch_publish]
+                            PubsubMessage(data=message.json().encode("utf-8"), ordering_key=ordering_key)
+                            for ordering_key, message in messages[i : i + batch_publish]
                         ],
                         timeout=self._timeout,
                     )

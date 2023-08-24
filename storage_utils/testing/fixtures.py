@@ -300,8 +300,8 @@ def fake_pubsub_publisher_client(fake_pubsub_publisher_buffer):
             pass
 
         async def publish(self, topic, messages, timeout=10):
-            for message in messages:
-                fake_pubsub_publisher_buffer[topic].append(message)
+            for ordering_key, message in messages:
+                fake_pubsub_publisher_buffer[topic].append((ordering_key, message))
 
         async def close(self):
             pass
