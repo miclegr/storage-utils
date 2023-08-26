@@ -23,7 +23,7 @@ class PubSubRepository(Repository):
         self, subscription: str, MessageType: Parsable, **context
     ):
 
-        messages = await self.retriable_pull_call(
+        messages = await self._retriable_pull_call(
             subscription
         )
         output = []
@@ -44,7 +44,7 @@ class PubSubRepository(Repository):
         for item in items:
             buffer.append(MessageType.from_domain(item, **context))
 
-    async def retriable_pull_call(self, subscription: str):
+    async def _retriable_pull_call(self, subscription: str):
         return await self.pubsub_subscriber_client.pull(
                 subscription, max_messages=1000, timeout=self._timeout
             )

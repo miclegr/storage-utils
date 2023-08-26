@@ -57,7 +57,7 @@ class PubSubUnitOfWork(UnitOfWork):
         for topic, messages in self.publisher_buffer.items():
             if len(messages) > 0:
                 for i in range(0, len(messages), batch_publish):
-                    await self.retriable_publish_call(
+                    await self._retriable_publish_call(
                         topic,
                         [
                             PubsubMessage(
@@ -87,7 +87,7 @@ class PubSubUnitOfWork(UnitOfWork):
                 else:
                     ack_ids_filtered = list(ack_ids.values())
 
-                await self.retriable_acknowledge_call(
+                await self._retriable_acknowledge_call(
                     topic, ack_ids_filtered
                 )
                 ack_ids.clear() 
@@ -111,14 +111,14 @@ class PubSubUnitOfWork(UnitOfWork):
         for _, messages in self.publisher_buffer.items():
             messages[:] = []
 
-    async def retriable_publish_call(self, topic: str, messages: List[PubsubMessage]):
+    async def _retriable_publish_call(self, topic: str, messages: List[PubsubMessage]):
         return await self.publisher_client.publish(
                                 topic,
                                 messages,
                                 timeout=self._timeout,
                             )
 
-    async def retriable_acknowledge_call(self, topic: str, ack_ids: List[str]):
+    async def _retriable_acknowledge_call(self, topic: str, ack_ids: List[str]):
         return await self.subscriber_client.acknowledge(
             topic, ack_ids, timeout=self._timeout
         )
