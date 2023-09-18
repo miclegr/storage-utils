@@ -47,7 +47,7 @@ class SqlAlchemyRepository(Repository):
         return {c: getattr(base, c) for c in cols}
 
     def _push_also_relationships(
-        self, data: List[Pushable], data_type: Pushable, handle_conflict: str 
+            self, data: List[Pushable], data_type: Pushable, handle_conflict: str, statement_buffer: List
     ):
 
         insert = self._get_insert()
@@ -95,7 +95,7 @@ class SqlAlchemyRepository(Repository):
                     else:
                         raise NotImplementedError
 
-                    self.session.execute(stmt)
+                    statement_buffer.append(stmt)
 
                 stack.append((new_data, new_data_type, (*exclude, new_data_type)))
 
@@ -114,10 +114,14 @@ class SqlAlchemyRepository(Repository):
         stmt = insert(data_type).values(
             [self._base_to_dict(d, primary + cols) for d in data]
         )
-        self.session.execute(stmt)
+        statement_buffer = []
+        statement_buffer.append(stmt)
 
         if push_relationships:
-            self._push_also_relationships(data, data_type, 'dont')
+            self._push_also_relationships(data, data_type, 'dont', statement_buffer)
+
+        for stmt in statement_buffer[::-1]:
+            self.session.execute(stmt)
 
     def _push_type_if_not_exist(
         self,
@@ -138,10 +142,15 @@ class SqlAlchemyRepository(Repository):
             stmt = stmt.on_conflict_do_nothing(
                 index_elements=primary,
             )
-            self.session.execute(stmt)
+
+            statement_buffer = []
+            statement_buffer.append(stmt)
 
             if push_relationships:
-                self._push_also_relationships(data, data_type, 'on_conflict_do_nothing')
+                self._push_also_relationships(data, data_type, 'on_conflict_do_nothing', statement_buffer)
+
+            for stmt in statement_buffer[::-1]:
+                self.session.execute(stmt)
 
     def _upsert_type(
         self,
@@ -168,7 +177,11 @@ class SqlAlchemyRepository(Repository):
                 set_={name: getattr(stmt.excluded, name) for name in columns_subset},
             )
 
-            self.session.execute(stmt)
+            statement_buffer = []
+            statement_buffer.append(stmt)
 
             if upsert_relationships:
-                self._push_also_relationships(data, data_type, 'on_conflict_do_update')
+                self._push_also_relationships(data, data_type, 'on_conflict_do_update', statement_buffer)
+
+            for stmt in statement_buffer[::-1]:
+                self.session.execute(stmt)
