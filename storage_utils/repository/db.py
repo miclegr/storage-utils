@@ -173,7 +173,8 @@ class SqlAlchemyRepository(Repository):
             order = self._sort_relationship_topologically(data_type)
 
             for ordered_data_type in order:
-                self.session.execute(statement_buffer[ordered_data_type])
+                if ordered_data_type in statement_buffer:
+                    self.session.execute(statement_buffer[ordered_data_type])
 
     def _push_type_if_not_exist(
         self,
@@ -206,7 +207,8 @@ class SqlAlchemyRepository(Repository):
                 order = self._sort_relationship_topologically(data_type)
 
                 for ordered_data_type in order:
-                    self.session.execute(statement_buffer[ordered_data_type])
+                    if ordered_data_type in statement_buffer:
+                        self.session.execute(statement_buffer[ordered_data_type])
 
     def _upsert_type(
         self,
@@ -244,4 +246,5 @@ class SqlAlchemyRepository(Repository):
                 order = self._sort_relationship_topologically(data_type)
 
                 for ordered_data_type in order:
-                    self.session.execute(statement_buffer[ordered_data_type])
+                    if ordered_data_type in statement_buffer:
+                        self.session.execute(statement_buffer[ordered_data_type])
