@@ -1,6 +1,7 @@
-from typing import Any, Callable, List, Optional, Type
+from typing import Any, Callable, List, Optional, Type, Dict
 from sqlalchemy.orm import DeclarativeBase, Query, Session
 from sqlalchemy.inspection import inspect
+from sqlalchemy.orm import RelationshipDirection
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.dialects.postgresql import insert as postgres_insert
 from sqlalchemy.sql import Select
@@ -10,6 +11,9 @@ from .abstract import Repository
 
 
 class SqlAlchemyRepository(Repository):
+    
+    _relationship_topological_order = {}
+
     def __init__(self, session: Session):
         self.session = session
 
@@ -47,7 +51,7 @@ class SqlAlchemyRepository(Repository):
         return {c: getattr(base, c) for c in cols}
 
     def _push_also_relationships(
-            self, data: List[Pushable], data_type: Pushable, handle_conflict: str, statement_buffer: List
+            self, data: List[Pushable], data_type: Pushable, handle_conflict: str, statement_buffer: Dict
     ):
 
         insert = self._get_insert()
@@ -95,9 +99,52 @@ class SqlAlchemyRepository(Repository):
                     else:
                         raise NotImplementedError
 
-                    statement_buffer.append(stmt)
+                    statement_buffer[new_data_type] = stmt
 
                 stack.append((new_data, new_data_type, (*exclude, new_data_type)))
+
+    def _sort_relationship_topologically(self, root_data_type: Pushable) -> List[Type[Pushable]]:
+        
+        if root_data_type in self._relationship_topological_order:
+            return self._relationship_topological_order[root_data_type]
+
+        relationships = set()
+        seen = set([root_data_type])
+        stack = [root_data_type]
+        while len(stack):
+            data_type = stack.pop()
+            ref = inspect(data_type)
+            depends = []
+            for k in ref.relationships:
+                related_with = k.mapper.class_
+                if k.direction == RelationshipDirection.MANYTOONE:
+                    assert len(k.remote_side) == 1
+                    depends.append(related_with)
+                elif k.direction == RelationshipDirection.MANYTOMANY:
+                    raise NotImplementedError
+                
+                if related_with not in seen:
+                    stack.append(related_with)
+                    seen.add(related_with)
+            relationships.add((data_type, tuple(depends)))
+
+        to_sort_topologically = sorted(map(lambda x: (x[0], list(x[1])),relationships), key=lambda x: -len(x[1]))
+
+        sorted_topologically = []
+        while len(to_sort_topologically):
+            data_type, depends = to_sort_topologically.pop()
+
+            if len(depends) != 0:
+                to_sort_topologically.insert(0, (data_type, depends))
+                continue
+
+            for _, other_deps in to_sort_topologically:
+                if data_type in other_deps:
+                    other_deps.remove(data_type)
+            sorted_topologically.append(data_type)
+
+        self._relationship_topological_order[root_data_type] = sorted_topologically
+        return sorted_topologically
 
     def _push_type(
         self,
@@ -114,14 +161,19 @@ class SqlAlchemyRepository(Repository):
         stmt = insert(data_type).values(
             [self._base_to_dict(d, primary + cols) for d in data]
         )
-        statement_buffer = []
-        statement_buffer.append(stmt)
 
-        if push_relationships:
+        if not push_relationships:
+            self.session.execute(stmt)
+
+        else :
+            statement_buffer = {}
+            statement_buffer[data_type] = stmt
             self._push_also_relationships(data, data_type, 'dont', statement_buffer)
 
-        for stmt in statement_buffer[::-1]:
-            self.session.execute(stmt)
+            order = self._sort_relationship_topologically(data_type)
+
+            for ordered_data_type in order:
+                self.session.execute(statement_buffer[ordered_data_type])
 
     def _push_type_if_not_exist(
         self,
@@ -143,14 +195,18 @@ class SqlAlchemyRepository(Repository):
                 index_elements=primary,
             )
 
-            statement_buffer = []
-            statement_buffer.append(stmt)
+            if not push_relationships:
+                self.session.execute(stmt)
 
-            if push_relationships:
+            else :
+                statement_buffer = {}
+                statement_buffer[data_type] = stmt
                 self._push_also_relationships(data, data_type, 'on_conflict_do_nothing', statement_buffer)
 
-            for stmt in statement_buffer[::-1]:
-                self.session.execute(stmt)
+                order = self._sort_relationship_topologically(data_type)
+
+                for ordered_data_type in order:
+                    self.session.execute(statement_buffer[ordered_data_type])
 
     def _upsert_type(
         self,
@@ -177,11 +233,15 @@ class SqlAlchemyRepository(Repository):
                 set_={name: getattr(stmt.excluded, name) for name in columns_subset},
             )
 
-            statement_buffer = []
-            statement_buffer.append(stmt)
+            if not upsert_relationships:
+                self.session.execute(stmt)
 
-            if upsert_relationships:
+            else :
+                statement_buffer = {}
+                statement_buffer[data_type] = stmt
                 self._push_also_relationships(data, data_type, 'on_conflict_do_update', statement_buffer)
 
-            for stmt in statement_buffer[::-1]:
-                self.session.execute(stmt)
+                order = self._sort_relationship_topologically(data_type)
+
+                for ordered_data_type in order:
+                    self.session.execute(statement_buffer[ordered_data_type])
