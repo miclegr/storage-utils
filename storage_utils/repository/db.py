@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Any, Callable, List, Optional, Type, Dict
 from sqlalchemy.orm import DeclarativeBase, Query, Session
 from sqlalchemy.inspection import inspect
@@ -99,7 +100,7 @@ class SqlAlchemyRepository(Repository):
                     else:
                         raise NotImplementedError
 
-                    statement_buffer[new_data_type] = stmt
+                    statement_buffer[new_data_type].append(stmt)
 
                 stack.append((new_data, new_data_type, (*exclude, new_data_type)))
 
@@ -166,15 +167,15 @@ class SqlAlchemyRepository(Repository):
             self.session.execute(stmt)
 
         else :
-            statement_buffer = {}
-            statement_buffer[data_type] = stmt
+            statement_buffer = defaultdict(list)
+            statement_buffer[data_type].append(stmt)
             self._push_also_relationships(data, data_type, 'dont', statement_buffer)
 
             order = self._sort_relationship_topologically(data_type)
 
             for ordered_data_type in order:
-                if ordered_data_type in statement_buffer:
-                    self.session.execute(statement_buffer[ordered_data_type])
+                for stmt in statement_buffer[ordered_data_type]:
+                    self.session.execute(stmt)
 
     def _push_type_if_not_exist(
         self,
@@ -200,15 +201,15 @@ class SqlAlchemyRepository(Repository):
                 self.session.execute(stmt)
 
             else :
-                statement_buffer = {}
-                statement_buffer[data_type] = stmt
+                statement_buffer = defaultdict(list)
+                statement_buffer[data_type].append(stmt)
                 self._push_also_relationships(data, data_type, 'on_conflict_do_nothing', statement_buffer)
 
                 order = self._sort_relationship_topologically(data_type)
 
                 for ordered_data_type in order:
-                    if ordered_data_type in statement_buffer:
-                        self.session.execute(statement_buffer[ordered_data_type])
+                    for stmt in statement_buffer[ordered_data_type]:
+                        self.session.execute(stmt)
 
     def _upsert_type(
         self,
@@ -239,12 +240,12 @@ class SqlAlchemyRepository(Repository):
                 self.session.execute(stmt)
 
             else :
-                statement_buffer = {}
-                statement_buffer[data_type] = stmt
+                statement_buffer = defaultdict(list)
+                statement_buffer[data_type].append(stmt)
                 self._push_also_relationships(data, data_type, 'on_conflict_do_update', statement_buffer)
 
                 order = self._sort_relationship_topologically(data_type)
 
                 for ordered_data_type in order:
-                    if ordered_data_type in statement_buffer:
-                        self.session.execute(statement_buffer[ordered_data_type])
+                    for stmt in statement_buffer[ordered_data_type]:
+                        self.session.execute(stmt)
