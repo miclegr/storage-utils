@@ -1,10 +1,15 @@
 from typing import List, Dict, Type, Any
 import json
+
 from .abstract import Repository
 from ..protocols import Parsable, Pushable
+from ..retrying import NoRetry, RetryingConfig
 
 
 class PubSubRepository(Repository):
+
+    retrying_config: Type[RetryingConfig] = NoRetry
+
     def __init__(
         self,
         pubsub_subscriber_client,
@@ -45,7 +50,7 @@ class PubSubRepository(Repository):
             buffer.append(MessageType.from_domain(item, **context))
 
     async def _retriable_pull_call(self, subscription: str):
-        return await self.pubsub_subscriber_client.pull(
+        return await self.retrying_config.to_decorator()(self.pubsub_subscriber_client.pull)(
                 subscription, max_messages=1000, timeout=self._timeout
             )
 

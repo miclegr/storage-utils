@@ -1,6 +1,8 @@
-from typing import List, Any
+from typing import List, Any, Type
 from collections import defaultdict
+
 from .abstract import UnitOfWork
+from ..retrying import NoRetry, RetryingConfig
 from ..repository.pubsub import PubSubRepository
 from gcloud.aio.pubsub import SubscriberClient, PublisherClient
 from gcloud.aio.pubsub.utils import PubsubMessage
@@ -13,6 +15,7 @@ TOKEN = Token(scopes=[
 
 class PubSubUnitOfWork(UnitOfWork):
 
+    retrying_config: Type[RetryingConfig] = NoRetry
     repository: PubSubRepository
 
     def __init__(
@@ -112,14 +115,14 @@ class PubSubUnitOfWork(UnitOfWork):
             messages[:] = []
 
     async def _retriable_publish_call(self, topic: str, messages: List[PubsubMessage]):
-        return await self.publisher_client.publish(
+        return await self.retrying_config.to_decorator()(self.publisher_client.publish)(
                                 topic,
                                 messages,
                                 timeout=self._timeout,
                             )
 
     async def _retriable_acknowledge_call(self, topic: str, ack_ids: List[str]):
-        return await self.subscriber_client.acknowledge(
+        return await self.retrying_config.to_decorator()(self.subscriber_client.acknowledge)(
             topic, ack_ids, timeout=self._timeout
         )
 
