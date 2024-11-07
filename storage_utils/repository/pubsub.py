@@ -9,6 +9,8 @@ from ..retrying import NoRetry, RetryingConfig
 class PubSubRepository(Repository):
 
     retrying_config: Type[RetryingConfig] = NoRetry
+    timeout: int = 120
+    max_pull_messages: int = 1000
 
     def __init__(
         self,
@@ -22,7 +24,6 @@ class PubSubRepository(Repository):
         self.config = config
         self.pubsub_ack_buffer = pubsub_ack_buffer
         self.pubsub_publisher_buffer = pubsub_publisher_buffer
-        self._timeout = 120
 
     async def _pull_from_subscription(
         self, subscription: str, MessageType: Parsable, **context
@@ -51,6 +52,6 @@ class PubSubRepository(Repository):
 
     async def _retriable_pull_call(self, subscription: str):
         return await self.retrying_config.to_decorator()(self.pubsub_subscriber_client.pull)(
-                subscription, max_messages=1000, timeout=self._timeout
+                subscription, max_messages=self.max_pull_messages, timeout=self.timeout
             )
 

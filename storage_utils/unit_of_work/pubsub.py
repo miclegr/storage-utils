@@ -16,6 +16,8 @@ TOKEN = Token(scopes=[
 class PubSubUnitOfWork(UnitOfWork):
 
     retrying_config: Type[RetryingConfig] = NoRetry
+    timeout: int = 30
+    batch_publish_messages: int = 1000
     repository: PubSubRepository
 
     def __init__(
@@ -26,7 +28,6 @@ class PubSubUnitOfWork(UnitOfWork):
     ) -> None:
 
         self.pubsub_config = pubsub_config
-        self._timeout = 30
         self._constant_ordering_key = 'key'
 
         if subscriber_client_factory is None:
@@ -56,10 +57,9 @@ class PubSubUnitOfWork(UnitOfWork):
 
     async def commit_outbound(self):
 
-        batch_publish = 800
         for topic, messages in self.publisher_buffer.items():
             if len(messages) > 0:
-                for i in range(0, len(messages), batch_publish):
+                for i in range(0, len(messages), self.batch_publish_messages):
                     await self._retriable_publish_call(
                         topic,
                         [
@@ -67,7 +67,7 @@ class PubSubUnitOfWork(UnitOfWork):
                                 data=message.json().encode("utf-8"),
                                 ordering_key=self._constant_ordering_key
                                 )
-                            for message in messages[i : i + batch_publish]
+                            for message in messages[i : i + self.batch_publish_messages]
                         ],
                     )
                 messages[:] = []
@@ -118,11 +118,11 @@ class PubSubUnitOfWork(UnitOfWork):
         return await self.retrying_config.to_decorator()(self.publisher_client.publish)(
                                 topic,
                                 messages,
-                                timeout=self._timeout,
+                                timeout=self.timeout,
                             )
 
     async def _retriable_acknowledge_call(self, topic: str, ack_ids: List[str]):
         return await self.retrying_config.to_decorator()(self.subscriber_client.acknowledge)(
-            topic, ack_ids, timeout=self._timeout
+            topic, ack_ids, timeout=self.timeout
         )
 
