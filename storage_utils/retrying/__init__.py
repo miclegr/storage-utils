@@ -13,7 +13,7 @@ class RetryingConfig(ABC):
 
 class RetryNetworkErrors(RetryingConfig):
 
-    exceptions: Tuple[Type[Exception]] = (aiohttp.ClientResponseError,)
+    exceptions: Tuple[Type[Exception], ...] = (aiohttp.ClientResponseError,aiohttp.ClientOSError)
     exponential_rate: int = 1
     exponential_max: int = 10
     stop_after_attempt: int = 5
